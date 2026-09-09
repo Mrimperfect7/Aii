@@ -1,14 +1,18 @@
 /**
  * Thin storage boundary so the rest of the try-on module never talks to a
- * specific storage vendor directly. Implement these two functions against
- * whatever SHYN.ISH already uses for product images (S3, Cloudflare R2,
- * Vercel Blob, Cloudinary, etc.) — reusing the existing CDN, per the spec's
- * "reuse existing image CDN" requirement, rather than standing up a second one.
+ * specific storage vendor directly.
  *
- * putEphemeralObject MUST set the store's native TTL/expiry so uploaded
- * selfies are actually deleted after ttlSeconds even if nothing else in the
- * app calls a cleanup job. Most object stores support this natively
- * (S3 lifecycle rules, R2 expiring objects, signed URLs with short TTLs).
+ * DEMO IMPLEMENTATION: putEphemeralObject below returns a base64 data URL
+ * instead of writing to real object storage, so the deployed demo works
+ * with zero infra setup. This is fine for the mock provider (which just
+ * echoes the URL back to the browser) but will NOT work with a real
+ * vendor like Perfect Corp — those APIs need a publicly fetchable HTTPS
+ * URL, not a data URI, and data URLs are unbounded in size/unsuited to
+ * production traffic. Before going live, replace this with your actual
+ * CDN/object storage (S3, R2, Vercel Blob, Cloudinary, etc.) — reusing
+ * whatever SHYN.ISH already uses for product images — and make sure it
+ * enforces the ttlSeconds expiry natively (S3 lifecycle rule, R2 expiring
+ * object, signed URL with a short TTL).
  */
 
 export interface EphemeralObject {
@@ -22,10 +26,12 @@ export async function putEphemeralObject(
   contentType: string,
   ttlSeconds: number
 ): Promise<EphemeralObject> {
-  throw new Error(
-    "storageAdapter.putEphemeralObject is a stub — wire this to your CDN/object storage before going live. " +
-      `(key=${key}, bytes=${data.byteLength}, contentType=${contentType}, ttlSeconds=${ttlSeconds})`
-  );
+  // Demo-only: no expiry is actually enforced here since nothing is
+  // persisted server-side. Swap for real storage before production —
+  // see the file header.
+  void ttlSeconds;
+  const dataUrl = `data:${contentType};base64,${data.toString("base64")}`;
+  return { url: dataUrl, key };
 }
 
 /**
@@ -34,7 +40,7 @@ export async function putEphemeralObject(
  * move character assets to the CDN too, point this at that instead.
  */
 export function resolveToPublicUrl(pathOrUrl: string): string {
-  if (/^https?:\/\//.test(pathOrUrl)) return pathOrUrl;
+  if (/^https?:\/\//.test(pathOrUrl) || pathOrUrl.startsWith("data:")) return pathOrUrl;
   const base = process.env.NEXT_PUBLIC_SITE_URL || "";
   return `${base.replace(/\/$/, "")}${pathOrUrl}`;
 }

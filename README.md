@@ -76,14 +76,33 @@ built exactly for this: send your product image + a wearer photo, get back
 a composited result, REST + Bearer auth. `providers/perfectcorp.ts`
 implements against that documented pattern.
 
-**Before going live**, confirm the exact endpoint paths, field names, and
-response shape against Perfect Corp's current API reference and your
-account's onboarding docs — the file is a solid working starting point, not
-a verified 1:1 spec, since I can't see your account's actual API contract
-from here. Reasonable alternatives if Perfect Corp isn't the right fit on
-pricing or terms: Camweara (jewelry + eyewear, Shopify-friendly) or
-SellerPic (broader accessory catalog including jewelry/watches/bags,
-Shopify app + free tier for testing).
+**Verified against Perfect Corp's real, published OpenAPI specs** (ring and
+necklace endpoints specifically — fetched and read directly, not guessed):
+it's an **async task API** — you POST to create a task, get back a
+`task_id`, then poll a GET endpoint until `task_status` is `"success"` or
+`"error"`. `providers/perfectcorp.ts` implements that full create-then-poll
+flow. Their own docs confirm the 2D-image approach directly: *"Create
+realistic virtual try-on from a 2D image, no expensive 3D modelling
+required"* — so the product photo you already have is exactly the right
+input.
+
+Two things worth knowing before you plug in a real key:
+- **Ring and necklace endpoints were individually confirmed.** Bracelet and
+  earring follow the same URL pattern by strong analogy (both category
+  slugs appear elsewhere in Perfect Corp's docs) but weren't fetched and
+  verified with the same rigor — worth a quick check against
+  `docs.perfectcorp.com/reference/ai_bracelet` and `/ai_earrings` once you
+  have API access.
+- **Nose jewelry has no Perfect Corp equivalent at all.** They don't offer
+  that category — the provider throws a clear `UNSUPPORTED_CATEGORY` error
+  for it rather than silently hitting a made-up endpoint. If nose jewelry
+  matters for your catalog, that's a gap to solve with a different vendor
+  for that one category, or by hiding Try-On for those products.
+
+If Perfect Corp isn't the right fit on pricing or terms, alternatives:
+Camweara (jewelry + eyewear, Shopify-friendly) or SellerPic (broader
+accessory catalog, Shopify app + free tier for testing) — neither has been
+verified against real docs the way Perfect Corp has here.
 
 `providers/mock.ts` shows the shape a second implementation should take —
 copying that file and swapping the body for a real fetch call is the whole
